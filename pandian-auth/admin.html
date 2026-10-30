@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>盘点助手 · 授权管理</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #12151a;
+    color: #e6e9ef;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    min-height: 100vh;
+    padding: 24px 16px 40px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .sub { color: #8b93a3; font-size: 13px; margin-bottom: 24px; }
+  .card {
+    background: #1a1f27;
+    border: 1px solid #262d38;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 14px; color: #aeb6c4; margin-bottom: 12px; font-weight: 500; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: #8b93a3; font-weight: 500; padding: 8px 6px; border-bottom: 1px solid #262d38; }
+  td { padding: 10px 6px; border-bottom: 1px solid #20262f; vertical-align: top; }
+  .mono { font-family: Consolas, monospace; font-size: 12px; color: #9fb4d8; word-break: break-all; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; }
+  .ok { background: #14331f; color: #5fd68a; border: 1px solid #1e4a2e; }
+  .pending { background: #332a12; color: #e8c35c; border: 1px solid #4a3d1e; }
+  .revoked { background: #331414; color: #e86c6c; border: 1px solid #4a1e1e; }
+  .empty { color: #8b93a3; text-align: center; padding: 20px 0; }
+  .hint { font-size: 12px; color: #6f7887; line-height: 1.7; margin-top: 4px; }
+  .btn {
+    background: #222a35; color: #cfd6e2; border: 1px solid #333d4b;
+    padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .btn:hover { background: #2a3442; }
+  .refresh { float: right; }
+  .err { color: #e86c6c; font-size: 13px; margin-top: 8px; }
+  .footer { color: #5c6574; font-size: 12px; margin-top: 24px; text-align: center; }
+  .statusline { font-size: 13px; color: #8b93a3; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>盘点助手 · 授权管理</h1>
+  <div class="sub">设备白名单在线维护 · 数据来自 auth.json（由管理员更新）</div>
+
+  <div class="card">
+    <h2>已登记设备
+      <button class="btn refresh" onclick="load()">刷新</button>
+    </h2>
+    <div class="statusline" id="status">加载中…</div>
+    <table>
+      <thead><tr><th>状态</th><th>名称</th><th>机器码</th><th>登记时间</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="err" class="err"></div>
+  </div>
+
+  <div class="card">
+    <h2>如何开通/禁用某台设备</h2>
+    <div class="hint">
+      同事安装软件后首次打开会显示一个<strong>机器码</strong>，把它发给管理员（你）。<br>
+      管理员把机器码告诉你之后，你确认同意，管理员更新名单即可生效（GitHub Pages 约 1 分钟内刷新）。<br>
+      已登记设备的机器码可在上表中复制。禁用 = 标记为 revoked，该设备下次联网校验即失效。
+    </div>
+  </div>
+
+  <div class="footer">盘点助手 V2.0 TAL · 在线授权（GitHub Pages）</div>
+</div>
+
+<script>
+async function load() {
+  var s = document.getElementById("status");
+  var tb = document.getElementById("tbody");
+  var er = document.getElementById("err");
+  s.textContent = "加载中…";
+  er.textContent = "";
+  try {
+    var r = await fetch("auth.json?v=" + Date.now());
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    var data = await r.json();
+    var list = Object.values(data.devices || {});
+    list.sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+    if (!list.length) {
+      tb.innerHTML = '<tr><td colspan="4" class="empty">暂无设备登记</td></tr>';
+      s.textContent = "共 0 台设备";
+      return;
+    }
+    var okN = list.filter(function (d) { return d.approved; }).length;
+    s.textContent = "共 " + list.length + " 台设备，已授权 " + okN + " 台";
+    tb.innerHTML = list.map(function (d) {
+      var st = d.approved ? ["ok", "已授权"] : (d.status === "revoked" ? ["revoked", "已禁用"] : ["pending", "待审批"]);
+      var t = d.ts ? new Date(d.ts).toLocaleString() : "—";
+      return '<tr><td><span class="badge ' + st[0] + '">' + st[1] + '</span></td>' +
+        '<td>' + (d.name || "—") + '</td>' +
+        '<td class="mono">' + d.mid + '</td>' +
+        '<td>' + t + '</td></tr>';
+    }).join("");
+  } catch (e) {
+    er.textContent = "读取失败：" + e.message + "（请稍后刷新）";
+    s.textContent = "";
+  }
+}
+load();
+</script>
+</body>
+</html>
